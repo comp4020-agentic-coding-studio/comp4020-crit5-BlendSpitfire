@@ -1,9 +1,5 @@
 # Process overview
 
-<!-- TEMPLATE: this file is a shape to fill in, not a form. Replace everything
-     in it with your own overview, and delete this comment — `pnpm
-     check:evidence` will remind you if it's still here. -->
-
 A reading-guide to how the work came together --- a map to your process, not an
 essay about it. Markers read this file and follow its citations; they don't
 trawl the repo for evidence you didn't point at, so if a moment mattered, cite
@@ -17,7 +13,14 @@ cover every deliverable.
 
 ## What I built
 
-One paragraph: the thing, and the idea behind it.
+Sky Duel, a classic vertical-scrolling shooter (a "plane battle" in the
+1945/Raiden mold): the plane sits at the bottom, enemies descend from the
+top, and the plane auto-fires while the player steers by moving the mouse or
+the arrow keys. There's no instruction text anywhere — the plane is already
+mid-fight the moment the page loads, so moving and dodging is the whole
+tutorial. Three lives, a difficulty ramp, a ranged "gunner" enemy alongside
+the diving kind, and an occasional spread-shot pickup give it enough depth to
+hold up for a few minutes of play.
 
 ## The moments that mattered
 
@@ -34,10 +37,16 @@ list short so each moment has room to do all four jobs:
    conservative execution of any unconfirmed instruction. So I rewrote that
    rule to separate genuine scope changes (which still need confirmation) from
    small in-scope judgment calls like wording and capitalization (which don't).
-3. **how you knew it was right** --- the check you ran, the viewport you looked
-   at, what you read before accepting the diff
-4. **the citation** --- a commit or commit range, a `CLAUDE.md` change, a check
-   that went from red to green, a prompt paired with the commit it produced
+3. **how you knew it was right** --- I probably have no way to know for sure.
+   This issue only surfaced because it happened to expose the old
+   `CLAUDE.md` rule; a similar gap in the new rule might only turn up by
+   accident, later on.
+4. **the citation** ---
+   [`a5e8bce...b57045a`](https://github.com/comp4020-agentic-coding-studio/comp4020-crit5-BlendSpitfire/compare/a5e8bce...b57045a)
+   spans the pause feature that surfaced the issue, the reflection entry, and
+   the `CLAUDE.md` rewrite that fixed it.
+
+> 那我想改一下Claude.md，我的初衷是不要未经讨论就做过大的改动，但现在看它似乎干扰到了正常的优化，导致执行非常刻板。
 
 Jobs 2 and 3 are the ones the repo can't tell a reader on its own, so they're
 where the marks are. The strongest moments are the ones where a correction
@@ -47,12 +56,8 @@ attempt thrown away. Retrying until it passes is the routine case, and changing
 what the work runs against is the skilled one.
 
 Cite each moment as a link whose text is the commit hash or range and whose
-target is this repo's commit or compare URL, so a reader clicks straight to the
-evidence:
-
-- one commit: [`a1b2c3d`](https://github.com/YOUR-ORG/YOUR-REPO/commit/a1b2c3d)
-- a range:
-  [`a1b2c3d...e4f5a6b`](https://github.com/YOUR-ORG/YOUR-REPO/compare/a1b2c3d...e4f5a6b)
+target is this repo's commit or compare URL, so a reader clicks straight to
+the evidence (as in the citation above).
 
 To pair a prompt with the commit it produced, quote the prompt (curated, not a
 full transcript) next to the citation:
