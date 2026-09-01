@@ -1,12 +1,15 @@
 import {
   aabbIntersects,
+  applyEnemyBulletHit,
   applyEnemyCollision,
   clampToBounds,
   createInitialState,
   enemySpeed,
+  maybeFireGunner,
   spawnIntervalMs,
   type Bullet,
   type Enemy,
+  type EnemyBullet,
   type GameState,
   type Powerup,
 } from "./game-logic";
@@ -27,11 +30,13 @@ const SPREAD_FIRE_INTERVAL_MS = 200;
 const SPREAD_DURATION_MS = 6000;
 const POWERUP_INTERVAL_MS = 9000;
 const POWERUP_SPEED = 90;
+const GUNNER_SPAWN_INTERVAL_MS = 4200;
 
 let state: GameState = createInitialState(BOUNDS);
 let lastFireMs = 0;
 let lastSpawnAt = 0;
 let lastPowerupAt = 0;
+let lastGunnerSpawnAt = 0;
 
 const keys = new Set<string>();
 window.addEventListener("keydown", (e) => keys.add(e.key.toLowerCase()));
@@ -51,16 +56,15 @@ canvas.addEventListener("pointerdown", (e) => {
     state = createInitialState(BOUNDS);
     lastSpawnAt = 0;
     lastPowerupAt = 0;
+    lastGunnerSpawnAt = 0;
     return;
   }
   pointerTarget = pointerToCanvas(e.clientX, e.clientY);
 });
+// The plane snaps to wherever the pointer is, hovering included: no press
+// or drag needed on a mouse, and a finger just needs to touch and move.
 canvas.addEventListener("pointermove", (e) => {
-  if (e.buttons === 0 && e.pointerType === "mouse") return;
   pointerTarget = pointerToCanvas(e.clientX, e.clientY);
-});
-window.addEventListener("pointerup", () => {
-  pointerTarget = null;
 });
 
 function movementFromKeys(dt: number): { dx: number; dy: number } {
@@ -79,11 +83,28 @@ function spawnEnemy(nowMs: number) {
   const height = 30;
   const enemy: Enemy = {
     id: state.nextId,
+    kind: "diver",
     pos: { x: Math.random() * (BOUNDS.x - width), y: -height },
     width,
     height,
     hp: Math.random() < 0.15 ? 2 : 1,
     speed: enemySpeed(nowMs) * (0.85 + Math.random() * 0.3),
+  };
+  state = { ...state, enemies: [...state.enemies, enemy], nextId: state.nextId + 1 };
+}
+
+function spawnGunner(nowMs: number) {
+  const width = 32;
+  const height = 28;
+  const enemy: Enemy = {
+    id: state.nextId,
+    kind: "gunner",
+    pos: { x: Math.random() * (BOUNDS.x - width), y: -height },
+    width,
+    height,
+    hp: 2,
+    speed: 55,
+    nextFireAtMs: nowMs + 900 + Math.random() * 700,
   };
   state = { ...state, enemies: [...state.enemies, enemy], nextId: state.nextId + 1 };
 }
@@ -150,12 +171,33 @@ function update(dt: number, nowMs: number) {
     lastSpawnAt = nowMs;
     spawnEnemy(state.elapsedMs);
   }
+  if (nowMs - lastGunnerSpawnAt > GUNNER_SPAWN_INTERVAL_MS) {
+    lastGunnerSpawnAt = nowMs;
+    spawnGunner(nowMs);
+  }
   if (nowMs - lastPowerupAt > POWERUP_INTERVAL_MS) {
     lastPowerupAt = nowMs;
     spawnPowerup(state.elapsedMs);
   }
 
   fireBullets(nowMs);
+
+  // gunners fire straight down at their own cooldown
+  const firedEnemyBullets: EnemyBullet[] = [];
+  const enemiesAfterFiring = state.enemies.map((enemy) => {
+    const fired = maybeFireGunner(enemy, nowMs, state.nextId + firedEnemyBullets.length);
+    if (!fired) return enemy;
+    firedEnemyBullets.push(fired.bullet);
+    return fired.enemy;
+  });
+  if (firedEnemyBullets.length) {
+    state = {
+      ...state,
+      enemies: enemiesAfterFiring,
+      enemyBullets: [...state.enemyBullets, ...firedEnemyBullets],
+      nextId: state.nextId + firedEnemyBullets.length,
+    };
+  }
 
   const bullets = (state.bullets as DirectedBullet[])
     .map((b) => ({ ...b, pos: { x: b.pos.x + (b.dx ?? 0) * dt, y: b.pos.y - b.speed * dt } }))
@@ -169,7 +211,11 @@ function update(dt: number, nowMs: number) {
     .map((p) => ({ ...p, pos: { x: p.pos.x, y: p.pos.y + p.speed * dt } }))
     .filter((p) => p.pos.y < BOUNDS.y + p.height);
 
-  state = { ...state, bullets, enemies, powerups };
+  const enemyBullets = state.enemyBullets
+    .map((b) => ({ ...b, pos: { x: b.pos.x, y: b.pos.y + b.speed * dt } }))
+    .filter((b) => b.pos.y < BOUNDS.y + b.height);
+
+  state = { ...state, bullets, enemies, powerups, enemyBullets };
 
   // bullet vs enemy
   let score = state.score;
@@ -211,6 +257,14 @@ function update(dt: number, nowMs: number) {
     }
   }
 
+  // player vs gunner bullet
+  for (const enemyBullet of state.enemyBullets) {
+    if (aabbIntersects(state.player, enemyBullet)) {
+      state = applyEnemyBulletHit(state, enemyBullet.id, nowMs);
+      break;
+    }
+  }
+
   // player vs powerup
   const collectedIds = new Set<number>();
   for (const powerup of state.powerups) {
@@ -247,8 +301,13 @@ function draw(nowMs: number) {
   }
 
   for (const enemy of state.enemies) {
-    c.fillStyle = enemy.hp > 1 ? "#f97316" : "#ef4444";
+    c.fillStyle = enemy.kind === "gunner" ? "#a855f7" : enemy.hp > 1 ? "#f97316" : "#ef4444";
     drawTriangle(c, enemy.pos.x, enemy.pos.y, enemy.width, enemy.height, true);
+  }
+
+  c.fillStyle = "#fb923c";
+  for (const enemyBullet of state.enemyBullets) {
+    c.fillRect(enemyBullet.pos.x, enemyBullet.pos.y, enemyBullet.width, enemyBullet.height);
   }
 
   c.fillStyle = "#38bdf8";

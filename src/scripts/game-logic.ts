@@ -14,12 +14,22 @@ export interface Entity {
   height: number;
 }
 
+// "diver" enemies just descend; "gunner" enemies descend more slowly and
+// fire straight down at intervals, tracked per-enemy via nextFireAtMs.
+export type EnemyKind = "diver" | "gunner";
+
 export interface Enemy extends Entity {
+  kind: EnemyKind;
   hp: number;
   speed: number;
+  nextFireAtMs?: number;
 }
 
 export interface Bullet extends Entity {
+  speed: number;
+}
+
+export interface EnemyBullet extends Entity {
   speed: number;
 }
 
@@ -32,6 +42,7 @@ export interface GameState {
   invincibleUntilMs: number;
   enemies: Enemy[];
   bullets: Bullet[];
+  enemyBullets: EnemyBullet[];
   powerups: Powerup[];
   spreadUntilMs: number;
   lives: number;
@@ -43,6 +54,8 @@ export interface GameState {
 
 export const START_LIVES = 3;
 export const INVINCIBILITY_MS = 1200;
+export const GUNNER_FIRE_INTERVAL_MS = 1500;
+export const GUNNER_BULLET_SPEED = 220;
 
 export function aabbIntersects(a: Entity, b: Entity): boolean {
   return (
@@ -71,6 +84,19 @@ export function enemySpeed(elapsedMs: number): number {
   return startSpeed + (maxSpeed - startSpeed) * t;
 }
 
+// Shared by every way the player can get hit: remove a life unless briefly
+// invincible, and end the round once lives reach zero.
+function loseLifeIfVulnerable(state: GameState, nowMs: number): GameState {
+  if (nowMs < state.invincibleUntilMs) return state;
+  const lives = state.lives - 1;
+  return {
+    ...state,
+    lives,
+    gameOver: lives <= 0,
+    invincibleUntilMs: nowMs + INVINCIBILITY_MS,
+  };
+}
+
 // The spec-required, focused rule: a collision between the player and an
 // enemy removes one life (unless the player is briefly invincible), clears
 // that enemy, and ends the round once lives reach zero.
@@ -83,18 +109,43 @@ export function applyEnemyCollision(
   if (!enemy || state.gameOver) return state;
 
   const enemies = state.enemies.filter((e) => e.id !== enemyId);
+  return { ...loseLifeIfVulnerable(state, nowMs), enemies };
+}
 
-  if (nowMs < state.invincibleUntilMs) {
-    return { ...state, enemies };
-  }
+// Same rule, but for a gunner enemy's bullet reaching the player instead of
+// the enemy's own body.
+export function applyEnemyBulletHit(
+  state: GameState,
+  bulletId: number,
+  nowMs: number,
+): GameState {
+  const bullet = state.enemyBullets.find((b) => b.id === bulletId);
+  if (!bullet || state.gameOver) return state;
 
-  const lives = state.lives - 1;
+  const enemyBullets = state.enemyBullets.filter((b) => b.id !== bulletId);
+  return { ...loseLifeIfVulnerable(state, nowMs), enemyBullets };
+}
+
+// A gunner fires once its cooldown elapses, resetting it for next time.
+// Returns null when it's not a gunner or the cooldown hasn't elapsed.
+export function maybeFireGunner(
+  enemy: Enemy,
+  nowMs: number,
+  bulletId: number,
+): { enemy: Enemy; bullet: EnemyBullet } | null {
+  if (enemy.kind !== "gunner") return null;
+  if (enemy.nextFireAtMs === undefined || nowMs < enemy.nextFireAtMs) return null;
+
+  const bullet: EnemyBullet = {
+    id: bulletId,
+    pos: { x: enemy.pos.x + enemy.width / 2 - 4, y: enemy.pos.y + enemy.height },
+    width: 8,
+    height: 8,
+    speed: GUNNER_BULLET_SPEED,
+  };
   return {
-    ...state,
-    enemies,
-    lives,
-    gameOver: lives <= 0,
-    invincibleUntilMs: nowMs + INVINCIBILITY_MS,
+    enemy: { ...enemy, nextFireAtMs: nowMs + GUNNER_FIRE_INTERVAL_MS },
+    bullet,
   };
 }
 
@@ -118,6 +169,7 @@ export function createInitialState(bounds: Vec2): GameState {
     invincibleUntilMs: 0,
     enemies: [],
     bullets: [],
+    enemyBullets: [],
     powerups: [],
     spreadUntilMs: 0,
     lives: START_LIVES,
