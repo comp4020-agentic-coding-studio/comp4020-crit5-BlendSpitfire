@@ -68,6 +68,14 @@ behind. `spec/README.md` draws the line.
 
 # Behavior Guidelines
 
+- Confirmation before acting is for scope, not detail: ask first only when an
+  action adds something beyond what the user asked (a new feature or check
+  they didn't request, touching an unrelated file or system). Within a task
+  the user already asked for, small implementation-detail judgment calls —
+  wording, capitalization, naming, minor styling/formatting — don't need
+  confirmation, even when the user's own phrasing gave a rough example rather
+  than a literal spec. Match existing conventions instead of copying the
+  example verbatim; these are cheap to redo if wrong.
 - After finishing a significant chunk of work (a feature, a design iteration,
   a meaningful piece of implementation) and checks are green, commit
   automatically without asking first.
