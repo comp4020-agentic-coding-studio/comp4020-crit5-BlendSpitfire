@@ -24,9 +24,16 @@ One paragraph: the thing, and the idea behind it.
 Three or four for an assignment; fewer is fine for a weekly prototype. Keep the
 list short so each moment has room to do all four jobs:
 
-1. **what happened** --- the problem, or the thing that went wrong
-2. **what you did instead of the obvious thing** --- the call you made, and why
-   it beat the obvious one
+1. **what happened** --- When adding the pause screen, I asked Claude to show
+   "paused" while paused. The ideal would have capitalized it, but Claude
+   copied my lowercase example verbatim instead of applying its own judgment.
+   A small thing, but it made me curious why.
+2. **what you did instead of the obvious thing** --- Instead of just telling it
+   to capitalize the word, I asked why it had used lowercase. Claude pointed to
+   a rule in the top-level `CLAUDE.md` that made it default to literal,
+   conservative execution of any unconfirmed instruction. So I rewrote that
+   rule to separate genuine scope changes (which still need confirmation) from
+   small in-scope judgment calls like wording and capitalization (which don't).
 3. **how you knew it was right** --- the check you ran, the viewport you looked
    at, what you read before accepting the diff
 4. **the citation** --- a commit or commit range, a `CLAUDE.md` change, a check
