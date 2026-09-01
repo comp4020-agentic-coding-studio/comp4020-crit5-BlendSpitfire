@@ -37,9 +37,20 @@ let lastFireMs = 0;
 let lastSpawnAt = 0;
 let lastPowerupAt = 0;
 let lastGunnerSpawnAt = 0;
+let paused = false;
+
+function togglePause() {
+  if (state.gameOver) return;
+  paused = !paused;
+}
 
 const keys = new Set<string>();
-window.addEventListener("keydown", (e) => keys.add(e.key.toLowerCase()));
+window.addEventListener("keydown", (e) => {
+  const key = e.key.toLowerCase();
+  keys.add(key);
+  if (e.repeat) return;
+  if (key === "escape" || key === " ") togglePause();
+});
 window.addEventListener("keyup", (e) => keys.delete(e.key.toLowerCase()));
 
 let pointerTarget: { x: number; y: number } | null = null;
@@ -51,15 +62,16 @@ function pointerToCanvas(clientX: number, clientY: number) {
   return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
 }
 
-canvas.addEventListener("pointerdown", (e) => {
+canvas.addEventListener("pointerdown", () => {
   if (state.gameOver) {
     state = createInitialState(BOUNDS);
     lastSpawnAt = 0;
     lastPowerupAt = 0;
     lastGunnerSpawnAt = 0;
+    paused = false;
     return;
   }
-  pointerTarget = pointerToCanvas(e.clientX, e.clientY);
+  togglePause();
 });
 // The plane snaps to wherever the pointer is, hovering included: no press
 // or drag needed on a mouse, and a finger just needs to touch and move.
@@ -334,17 +346,25 @@ function draw(nowMs: number) {
   }
 
   if (state.gameOver) {
-    c.fillStyle = "#00000099";
-    c.fillRect(0, 0, BOUNDS.x, BOUNDS.y);
-    c.fillStyle = "#f8fafc";
-    c.textAlign = "center";
-    c.font = "bold 40px system-ui, sans-serif";
-    c.fillText(String(state.score), BOUNDS.x / 2, BOUNDS.y / 2 - 30);
-    c.font = "18px system-ui, sans-serif";
-    c.fillStyle = "#94a3b8";
-    c.fillText("↻", BOUNDS.x / 2, BOUNDS.y / 2 + 20);
-    c.textAlign = "left";
+    drawOverlay(c, String(state.score));
+  } else if (paused) {
+    drawOverlay(c, "paused");
   }
+}
+
+// Shared by the game-over screen and the pause screen: same dimmed
+// backdrop and layout, just a different headline.
+function drawOverlay(c: CanvasRenderingContext2D, headline: string) {
+  c.fillStyle = "#00000099";
+  c.fillRect(0, 0, BOUNDS.x, BOUNDS.y);
+  c.fillStyle = "#f8fafc";
+  c.textAlign = "center";
+  c.font = "bold 40px system-ui, sans-serif";
+  c.fillText(headline, BOUNDS.x / 2, BOUNDS.y / 2 - 30);
+  c.font = "18px system-ui, sans-serif";
+  c.fillStyle = "#94a3b8";
+  c.fillText("↻", BOUNDS.x / 2, BOUNDS.y / 2 + 20);
+  c.textAlign = "left";
 }
 
 function drawTriangle(
@@ -373,7 +393,7 @@ let lastFrame = performance.now();
 function loop(now: number) {
   const dt = Math.min(0.05, (now - lastFrame) / 1000);
   lastFrame = now;
-  update(dt, now);
+  if (!paused) update(dt, now);
   draw(now);
   requestAnimationFrame(loop);
 }
